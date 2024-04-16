@@ -1,4 +1,4 @@
-#include "Person.hpp"
+#include "Message.hpp"
 #include <boost/archive/text_iarchive.hpp>
 #include <boost/archive/text_oarchive.hpp>
 #include <boost/asio.hpp>
@@ -21,24 +21,42 @@ private:
           if (!ec) {
             std::istringstream archive_stream(std::string(data_, length));
             boost::archive::text_iarchive archive(archive_stream);
-            Person receivedPerson;
-            archive >> receivedPerson;
-            std::cout << "Received: name=" << receivedPerson.name
-                      << ", age=" << receivedPerson.age
-                      << ", id=" << receivedPerson.id
-                      << ", email=" << receivedPerson.email
-                      << ", hash=" << receivedPerson.hash
-                      << std::endl;
-            doWrite(receivedPerson);
+            try {
+              Message receivedMessage;
+              archive >> receivedMessage;
+              switch (receivedMessage.type) {
+              case PERSON: {
+                const auto &person = std::get<Person>(receivedMessage.payload);
+                std::cout << "Received Person: name=" << person.name
+                          << ", id=" << person.id << ", email=" << person.email
+                          << std::endl;
+                break;
+              }
+              case COMPANY: {
+                std::cout << "Received Company" << std::endl;
+                const auto &company =
+                    std::get<Company>(receivedMessage.payload);
+                std::cout << "Received Company: name=" << company.name
+                          << ", id=" << company.id << std::endl;
+                break;
+              }
+              }
+              doWrite(receivedMessage);
+            } catch (const std::exception &e) {
+              std::cerr << "Error parsing received message: " << e.what()
+                        << std::endl;
+            }
+          } else {
+            std::cerr << "Error receiving data: " << ec.message() << std::endl;
           }
         });
   }
 
-  void doWrite(const Person &person) {
+  void doWrite(const Message &message) {
     auto self(shared_from_this());
     std::ostringstream archive_stream;
     boost::archive::text_oarchive archive(archive_stream);
-    archive << person;
+    archive << message;
     std::string serialized_data = archive_stream.str();
     boost::asio::async_write(
         socket_, boost::asio::buffer(serialized_data),
