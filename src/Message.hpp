@@ -1,33 +1,19 @@
-#include <string>
-#include <variant>
-
-namespace boost {
-namespace serialization {
-template <class Archive, typename... Types>
-void serialize(Archive &ar, std::variant<Types...> &variant,
-               const unsigned int version) {
-  int index = variant.index();
-  ar & index;
-  std::visit([&ar](auto &&value) { ar & value; }, variant);
-}
-} // namespace serialization
-} // namespace boost
-
-enum MessageType {
-  PERSON,
-  COMPANY,
-};
+#include <boost/archive/text_iarchive.hpp>
+#include <boost/archive/text_oarchive.hpp>
+#include <boost/serialization/serialization.hpp>
+#include <boost/serialization/variant.hpp>
+#include <boost/variant.hpp>
 
 struct Person {
   std::string name;
+  int id;
   short age;
-  long id;
   std::string email;
   template <class Archive>
   void serialize(Archive &ar, const unsigned int version) {
     ar & name;
-    ar & age;
     ar & id;
+    ar & age;
     ar & email;
   }
 };
@@ -42,12 +28,4 @@ struct Company {
   }
 };
 
-struct Message {
-  MessageType type;
-  std::variant<Person, Company> payload;
-  template <class Archive>
-  void serialize(Archive &ar, const unsigned int version) {
-    ar & type;
-    ar & payload;
-  }
-};
+using Message = boost::variant<Person, Company>;
