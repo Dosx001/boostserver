@@ -1,6 +1,7 @@
 #include "Message.hpp"
 #include <boost/archive/text_iarchive.hpp>
 #include <boost/asio.hpp>
+#include <boost/format.hpp>
 #include <iostream>
 #include <sstream>
 #include <string>
@@ -16,6 +17,7 @@ private:
   tcp::socket socket_;
   enum { max_length = 1024 };
   char data_[max_length];
+  int count = 0;
   void handle_msg() {
     auto self(shared_from_this());
     socket_.async_read_some(
@@ -33,26 +35,33 @@ private:
                         << "ID: " << p.id << "\n"
                         << "Age: " << p.age << "\n"
                         << "Email: " << p.email << std::endl;
+              boost::format fmt =
+                  boost::format("Person %d message received") % count;
+              send_msg(fmt.str());
               break;
             }
             case 1: {
               const Company c = boost::get<Company>(msg);
               std::cout << "Company: " << c.name << "\n"
                         << "ID: " << c.id << std::endl;
+              boost::format fmt =
+                  boost::format("Company %d message received") % count;
+              send_msg(fmt.str());
               break;
             }
             default:
               std::cout << "Unknown type" << std::endl;
+              send_msg("Unknown message type received");
               break;
             }
-            send_msg(length);
+            count++;
           }
         });
   }
-  void send_msg(std::size_t length) {
+  void send_msg(const std::string &message) {
     auto self(shared_from_this());
     boost::asio::async_write(
-        socket_, boost::asio::buffer(data_, length),
+        socket_, boost::asio::buffer(message),
         [this, self](boost::system::error_code ec, std::size_t) {
           if (!ec) {
             handle_msg();
